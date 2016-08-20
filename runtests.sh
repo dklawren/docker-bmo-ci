@@ -3,6 +3,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+BUILDBOT=/docker/buildbot_step
+
 if [ -z "$TEST_SUITE" ]; then
     TEST_SUITE=sanity
 fi
@@ -10,7 +12,7 @@ fi
 set -e
 
 # Output to log file as well as STDOUT/STDERR
-exec > >(tee /runtests.log) 2>&1
+exec > >(tee /tmp/runtests.log) 2>&1
 
 echo "== Retrieving Bugzilla code"
 echo "Checking out $GITHUB_BASE_GIT $GITHUB_BASE_BRANCH ..."
@@ -25,7 +27,7 @@ fi
 
 if [ "$TEST_SUITE" = "sanity" ]; then
     cd $BUGZILLA_ROOT
-    /buildbot_step "Sanity" prove -f -v t/*.t
+    $BUILDBOT "Sanity" prove -f -v t/*.t
     exit $?
 fi
 
@@ -33,7 +35,7 @@ if [ "$TEST_SUITE" = "docs" ]; then
     export JADE_PUB=/usr/share/sgml
     export LDP_HOME=/usr/share/sgml/docbook/dsssl-stylesheets-1.79/dtds/decls
     cd $BUGZILLA_ROOT/docs
-    /buildbot_step "Documentation" perl makedocs.pl --with-pdf
+    $BUILDBOT "Documentation" perl makedocs.pl --with-pdf
     exit $?
 fi
 
@@ -55,11 +57,11 @@ echo "\$answer{'memcached_servers'} = 'localhost:11211';" >> $BUGZILLA_ROOT/qa/c
 
 echo -e "\n== Running checksetup"
 cd $BUGZILLA_ROOT
-./checksetup.pl qa/config/checksetup_answers.txt
-./checksetup.pl qa/config/checksetup_answers.txt
+perl checksetup.pl qa/config/checksetup_answers.txt
+perl checksetup.pl qa/config/checksetup_answers.txt
 
 echo -e "\n== Generating bmo data"
-perl /generate_bmo_data.pl
+perl /docker/generate_bmo_data.pl
 
 echo -e "\n== Generating test data"
 cd $BUGZILLA_ROOT/qa/config
@@ -78,11 +80,11 @@ if [ "$TEST_SUITE" = "selenium" ]; then
 
     echo -e "\n== Starting virtual frame buffer and vnc server"
     Xvnc $DISPLAY -screen 0 1280x1024x16 -ac -SecurityTypes=None \
-         -extension RANDR 2>&1 | tee /xvnc.log &
+         -extension RANDR 2>&1 | tee /tmp/xvnc.log &
     sleep 5
 
     echo -e "\n== Starting Selenium server"
-    java -jar /selenium-server.jar -log /selenium.log > /dev/null 2>&1 &
+    java -jar /docker/selenium-server.jar -log /tmp/selenium.log > /dev/null 2>&1 &
     sleep 5
 
     # Set NO_TESTS=1 if just want selenium services
@@ -90,12 +92,12 @@ if [ "$TEST_SUITE" = "selenium" ]; then
     [ $NO_TESTS ] && exit 0
 
     cd $BUGZILLA_ROOT/qa/t
-    /buildbot_step "Selenium" prove -f -v -I$BUGZILLA_ROOT/lib test_*.t
+    $BUILDBOT "Selenium" prove -f -v -I$BUGZILLA_ROOT/lib test_*.t
     exit $?
 fi
 
 if [ "$TEST_SUITE" = "webservices" ]; then
     cd $BUGZILLA_ROOT/qa/t
-    /buildbot_step "Webservices" prove -f -v -I$BUGZILLA_ROOT/lib webservice_*.t
+    $BUILDBOT "Webservices" prove -f -v -I$BUGZILLA_ROOT/lib webservice_*.t
     exit $?
 fi

@@ -47,23 +47,22 @@ RUN chown root.root /etc/sudoers && chmod 440 /etc/sudoers
 RUN su $BUGZILLA_USER -c "git clone $GITHUB_BASE_GIT -b $GITHUB_BASE_BRANCH $BUGZILLA_ROOT"
 
 # Copy setup and test scripts
-COPY *.sh generate_bmo_data.pl buildbot_step checksetup_answers.txt /
-RUN chmod 755 /*.sh /buildbot_step
+COPY *.sh generate_bmo_data.pl buildbot_step checksetup_answers.txt /docker/
+RUN chmod 755 /docker/*.sh /docker/buildbot_step
 
 # Bugzilla dependencies and setup
-RUN /bugzilla_config.sh
-RUN /my_config.sh
+RUN /docker/bugzilla_config.sh
+RUN /docker/my_config.sh
 
 # Final permissions fix
 RUN chown -R $BUGZILLA_USER.$BUGZILLA_USER $BUGZILLA_HOME
 
 # Testing scripts for CI
-ADD https://selenium-release.storage.googleapis.com/2.53/selenium-server-standalone-2.53.0.jar /selenium-server.jar
+ADD https://selenium-release.storage.googleapis.com/2.53/selenium-server-standalone-2.53.0.jar /docker/selenium-server.jar
 
 # Networking
 RUN echo "NETWORKING=yes" > /etc/sysconfig/network
 EXPOSE 80
-EXPOSE 22
 EXPOSE 5900
 
 # Supervisor
